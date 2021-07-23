@@ -8,7 +8,9 @@
             [tap-mssql.sync-strategies.common :as common]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
-            [clojure.java.jdbc :as jdbc]))
+            [clojure.java.jdbc :as jdbc]
+            [diehard.core :as dh])
+  (:import [com.microsoft.sqlserver.jdbc SQLServerException]))
 
 (defn get-change-tracking-tables*
   "Structure: {\"schema_name\" [\"table1\" \"table2\" ...] ...}"
@@ -19,21 +21,31 @@
                                    (concat [(:table_name val)])
                                    set)))
           {}
-          (jdbc/query (assoc (config/->conn-map config)
-                             :dbname dbname)
-                      [(str "SELECT OBJECT_SCHEMA_NAME(object_id) AS schema_name, "
-                            "       OBJECT_NAME(object_id) AS table_name "
-                            "FROM sys.change_tracking_tables")])))
+          (dh/with-retry {:retry-on SQLServerException
+                          :max-retries 3
+                          :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
+                          :on-success        (fn [_] (log/infof "GOOD JOB"))}
+            (jdbc/query (assoc (config/->conn-map config)
+                               :dbname dbname)
+                        [(str "SELECT OBJECT_SCHEMA_NAME(object_id) AS schema_name, "
+                              "       OBJECT_NAME(object_id) AS table_name "
+                              "FROM sys.change_tracking_tables")]))
+          ))
 
 (def get-change-tracking-tables (memoize get-change-tracking-tables*))
 
 (defn get-change-tracking-databases* [conf]
   (set (map #(:db_name %)
+            (dh/with-retry {:retry-on SQLServerException
+                            :max-retries 3
+                            :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
+                            :on-success        (fn [_] (log/infof "GOOD JOB"))}
             (jdbc/query (config/->conn-map conf)
                         [(str "SELECT DB.name AS db_name "
                               "FROM sys.change_tracking_databases CTDB "
                               "INNER JOIN sys.databases DB "
-                              "ON CTDB.database_id=DB.database_id")]))))
+                              "ON CTDB.database_id=DB.database_id")]))
+)))
 
 (def get-change-tracking-databases (memoize get-change-tracking-databases*))
 
@@ -42,7 +54,11 @@
                    (-> (partial format "%s.%s.%s")
                        (apply (map common/sanitize-names [dbname schema-name table-name])))]]
     (log/infof "Executing query: %s" sql-query)
-    (->> (jdbc/query (assoc (config/->conn-map config) :dbname dbname) sql-query)
+    (->> (dh/with-retry {:retry-on SQLServerException
+                         :max-retries 3
+                         :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
+                         :on-success        (fn [_] (log/infof "GOOD JOB"))}
+           (jdbc/query (assoc (config/->conn-map config) :dbname dbname) sql-query))
          first
          :object_id)))
 
@@ -50,7 +66,11 @@
   (let [object-id (get-object-id-by-table-name config dbname schema-name table-name)
         sql-query (format "SELECT CHANGE_TRACKING_MIN_VALID_VERSION(%d) as min_valid_version" object-id)]
     (log/infof "Executing query: %s" sql-query)
-    (-> (jdbc/query (assoc (config/->conn-map config) :dbname dbname) [sql-query])
+    (-> (dh/with-retry {:retry-on SQLServerException
+                        :max-retries 3
+                        :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
+                        :on-success        (fn [_] (log/infof "GOOD JOB"))}
+          (jdbc/query (assoc (config/->conn-map config) :dbname dbname) [sql-query]))
         first
         :min_valid_version)))
 
@@ -80,9 +100,13 @@
 
 (defn get-current-log-version [config catalog stream-name]
   (let [dbname (get-in catalog ["streams" stream-name "metadata" "database-name"])]
-    (-> (jdbc/query (assoc (config/->conn-map config)
-                           :dbname dbname)
-                    ["SELECT current_version = CHANGE_TRACKING_CURRENT_VERSION()"])
+    (-> (dh/with-retry {:retry-on SQLServerException
+                        :max-retries 3
+                        :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
+                        :on-success        (fn [_] (log/infof "GOOD JOB"))}
+          (jdbc/query (assoc (config/->conn-map config)
+                             :dbname dbname)
+                      ["SELECT current_version = CHANGE_TRACKING_CURRENT_VERSION()"]))
         first
         :current_version)))
 

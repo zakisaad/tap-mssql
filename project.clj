@@ -10,6 +10,8 @@
 
                  ;; jdbc
                  [org.clojure/java.jdbc "0.7.9"]
+
+                 ;; TODO: I experimented with updating this - should we?
                  [com.microsoft.sqlserver/mssql-jdbc "9.2.1.jre8"]
 
                  ;; logging
@@ -18,6 +20,10 @@
                                               javax.jms/jms
                                               com.sun.jdmk/jmxtools
                                               com.sun.jmx/jmxri]]
+
+                 ;;retry stuff
+                 ;; TODO: Is this the right library to use?
+                 [diehard "0.10.3"]
 
                  ;; repl
                  [nrepl "0.6.0"] ;; For Lein 2.9.X
