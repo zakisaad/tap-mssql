@@ -10,7 +10,7 @@
 
                  ;; jdbc
                  [org.clojure/java.jdbc "0.7.9"]
-                 [com.microsoft.sqlserver/mssql-jdbc "7.2.1.jre8"]
+                 [com.microsoft.sqlserver/mssql-jdbc "9.2.1.jre8"]
 
                  ;; logging
                  [org.clojure/tools.logging "0.3.1"]
