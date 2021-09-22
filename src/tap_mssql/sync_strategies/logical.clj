@@ -23,8 +23,7 @@
           {}
           (dh/with-retry {:retry-on SQLServerException
                           :max-retries 3
-                          :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
-                          :on-success        (fn [_] (log/infof "GOOD JOB"))}
+                          :on-retry (fn [val ex] (log/infof "Query failed, retrying"))}
             (jdbc/query (assoc (config/->conn-map config)
                                :dbname dbname)
                         [(str "SELECT OBJECT_SCHEMA_NAME(object_id) AS schema_name, "
@@ -38,8 +37,7 @@
   (set (map #(:db_name %)
             (dh/with-retry {:retry-on SQLServerException
                             :max-retries 3
-                            :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
-                            :on-success        (fn [_] (log/infof "GOOD JOB"))}
+                            :on-retry (fn [val ex] (log/infof "Query failed, retrying"))}
             (jdbc/query (config/->conn-map conf)
                         [(str "SELECT DB.name AS db_name "
                               "FROM sys.change_tracking_databases CTDB "
@@ -56,8 +54,7 @@
     (log/infof "Executing query: %s" sql-query)
     (->> (dh/with-retry {:retry-on SQLServerException
                          :max-retries 3
-                         :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
-                         :on-success        (fn [_] (log/infof "GOOD JOB"))}
+                         :on-retry (fn [val ex] (log/infof "Query failed, retrying"))}
            (jdbc/query (assoc (config/->conn-map config) :dbname dbname) sql-query))
          first
          :object_id)))
@@ -68,8 +65,7 @@
     (log/infof "Executing query: %s" sql-query)
     (-> (dh/with-retry {:retry-on SQLServerException
                         :max-retries 3
-                        :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
-                        :on-success        (fn [_] (log/infof "GOOD JOB"))}
+                        :on-retry (fn [val ex] (log/infof "Query failed, retrying"))}
           (jdbc/query (assoc (config/->conn-map config) :dbname dbname) [sql-query]))
         first
         :min_valid_version)))
@@ -102,8 +98,7 @@
   (let [dbname (get-in catalog ["streams" stream-name "metadata" "database-name"])]
     (-> (dh/with-retry {:retry-on SQLServerException
                         :max-retries 3
-                        :on-retry (fn [val ex] (log/infof "RETRYING HELLO"))
-                        :on-success        (fn [_] (log/infof "GOOD JOB"))}
+                        :on-retry (fn [val ex] (log/infof "Query failed, retrying"))}
           (jdbc/query (assoc (config/->conn-map config)
                              :dbname dbname)
                       ["SELECT current_version = CHANGE_TRACKING_CURRENT_VERSION()"]))
