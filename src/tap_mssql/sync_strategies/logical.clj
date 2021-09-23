@@ -247,10 +247,13 @@
                                                      (get result "sys_change_version"))
                          (singer-messages/write-state-buffered! stream-name))))
                 state
-                (jdbc/reducible-query (assoc (config/->conn-map config)
-                                             :dbname dbname)
-                                      sql-params
-                                      common/result-set-opts))
+                (dh/with-retry {:retry-on SQLServerException
+                                :max-retries 3
+                                :on-retry (fn [val ex] (log/infof "Query failed, retrying"))}
+                  (jdbc/reducible-query (assoc (config/->conn-map config)
+                                               :dbname dbname)
+                                        sql-params
+                                        common/result-set-opts)))
         ;; maybe-update in case no rows were synced
         (maybe-update-current-log-version stream-name db-log-version)
         ;; last_pk_fetched indicates an interruption, and should be gone
