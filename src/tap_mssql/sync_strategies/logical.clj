@@ -51,10 +51,10 @@
   (let [sql-query ["SELECT OBJECT_ID(?) AS object_id"
                    (-> (partial format "%s.%s.%s")
                        (apply (map common/sanitize-names [dbname schema-name table-name])))]]
-    (log/infof "Executing query: %s" sql-query)
     (->> (dh/with-retry {:retry-on SQLServerException
                          :max-retries 3
                          :on-retry (fn [val ex] (log/infof "Query failed, retrying"))}
+           (log/infof "Executing query: %s" sql-query)
            (jdbc/query (assoc (config/->conn-map config) :dbname dbname) sql-query))
          first
          :object_id)))
@@ -62,10 +62,10 @@
 (defn get-min-valid-version [config dbname schema-name table-name]
   (let [object-id (get-object-id-by-table-name config dbname schema-name table-name)
         sql-query (format "SELECT CHANGE_TRACKING_MIN_VALID_VERSION(%d) as min_valid_version" object-id)]
-    (log/infof "Executing query: %s" sql-query)
     (-> (dh/with-retry {:retry-on SQLServerException
                         :max-retries 3
                         :on-retry (fn [val ex] (log/infof "Query failed, retrying"))}
+          (log/infof "Executing query: %s" sql-query)
           (jdbc/query (assoc (config/->conn-map config) :dbname dbname) [sql-query]))
         first
         :min_valid_version)))

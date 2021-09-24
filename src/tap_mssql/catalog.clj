@@ -60,8 +60,11 @@
   (let [conn-map (config/->conn-map config)
         databases (filter (every-pred non-system-database?
                                       (partial config-specific-database? config))
-                          (jdbc/with-db-metadata [md conn-map]
-                            (jdbc/metadata-result (.getCatalogs md))))]
+                          (dh/with-retry {:retry-on    SQLServerException
+                                          :max-retries 3
+                                          :on-retry    (fn [val ex] (log/infof "Query failed, retrying"))}
+                           (jdbc/with-db-metadata [md conn-map]
+                             (jdbc/metadata-result (.getCatalogs md)))))]
     (log/infof "Found %s non-system databases." (count databases))
     databases))
 
@@ -235,13 +238,20 @@
              column))
 
 (defn get-table-names [conn-map]
-  (map :table_name (jdbc/query conn-map ["SELECT table_name FROM INFORMATION_SCHEMA.TABLES"])))
+  (dh/with-retry {:retry-on    SQLServerException
+                    :max-retries 3
+                    :on-retry    (fn [val ex] (log/infof "Query failed, retrying"))}
+    (map :table_name
+         (jdbc/query conn-map ["SELECT table_name FROM INFORMATION_SCHEMA.TABLES"]))))
 
 (defn get-database-raw-columns
   [conn-map database]
   (log/infof "Discovering columns and tables for database: %s" (:table_cat database))
-  (let [columns (jdbc/with-db-metadata [md conn-map]
-                  (jdbc/metadata-result (.getColumns md (:table_cat database) (:table_schem database) nil nil)))
+  (let [columns     (dh/with-retry {:retry-on    SQLServerException
+                                    :max-retries 3
+                                    :on-retry    (fn [val ex] (log/infof "Query failed, retrying"))}
+                      (jdbc/with-db-metadata [md conn-map]
+                        (jdbc/metadata-result (.getColumns md (:table_cat database) (:table_schem database) nil nil))))
         table-names (set (get-table-names conn-map))]
     (filter (comp (partial contains? table-names)
                   :table_name)
@@ -252,8 +262,12 @@
   (let [sql-query (str "SELECT kcu.table_name as table_name, kcu.column_name as primary_key, kcu.table_schema as table_schema, kcu.table_catalog as table_catalog "
                        "FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS AS tc "
                        "INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE AS kcu ON tc.CONSTRAINT_TYPE = 'PRIMARY KEY' AND tc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME")]
-    (log/infof "Executing query: %s" sql-query)
-    (jdbc/query conn-map [sql-query])))
+
+    (dh/with-retry {:retry-on    SQLServerException
+                    :max-retries 3
+                    :on-retry    (fn [val ex] (log/infof "Query failed, retrying"))}
+      (log/infof "Executing query: %s" sql-query)
+      (jdbc/query conn-map [sql-query]))))
 
 (defn add-primary-key?-data
   [primary-key-data column]
@@ -263,11 +277,14 @@
 
 (defn get-column-database-view-names*
   [conn-map table_cat table_schem]
-  (jdbc/with-db-metadata [md conn-map]
-    (->> (.getTables md table_cat table_schem nil (into-array ["VIEW"]))
-         jdbc/metadata-result
-         (map :table_name)
-         (into #{}))))
+  (dh/with-retry {:retry-on    SQLServerException
+                  :max-retries 3
+                  :on-retry    (fn [val ex] (log/infof "Query failed, retrying"))}
+   (jdbc/with-db-metadata [md conn-map]
+     (->> (.getTables md table_cat table_schem nil (into-array ["VIEW"]))
+          jdbc/metadata-result
+          (map :table_name)
+          (into #{})))))
 
 ;;; Not memoizing this proves to have prohibitively bad performance
 ;;; characteristics.
@@ -292,12 +309,15 @@
 (defn get-approximate-row-count
   [conn-map]
   (let [sql-query (str  "SELECT tbl.name as table_name, SCHEMA_NAME(tbl.schema_id) as schema_name, CAST(p.rows AS bigint) as row_count "
-                    "FROM sys.tables AS tbl "
-                    "INNER JOIN sys.indexes AS idx ON idx.object_id = tbl.object_id and idx.index_id < 2 "
-                    "INNER JOIN sys.partitions AS p ON p.object_id=CAST(tbl.object_id AS int) "
-                    "AND p.index_id=idx.index_id")]
-    (log/infof "Executing query: %s" sql-query)
-    (jdbc/query conn-map [sql-query])))
+                        "FROM sys.tables AS tbl "
+                        "INNER JOIN sys.indexes AS idx ON idx.object_id = tbl.object_id and idx.index_id < 2 "
+                        "INNER JOIN sys.partitions AS p ON p.object_id=CAST(tbl.object_id AS int) "
+                        "AND p.index_id=idx.index_id")]
+    (dh/with-retry {:retry-on    SQLServerException
+                    :max-retries 3
+                    :on-retry    (fn [val ex] (log/infof "Query failed, retrying"))}
+      (log/infof "Executing query: %s" sql-query)
+      (jdbc/query conn-map [sql-query]))))
 
 (defn add-row-count-data
   [row-count-data column]
@@ -334,10 +354,13 @@
 
 (defn discover
   [config]
-  (jdbc/with-db-metadata [metadata (config/->conn-map config)]
-    (log/infof "Connecting to %s version %s"
-               (.getDatabaseProductName metadata)
-               (.getDatabaseProductVersion metadata)))
+  (dh/with-retry {:retry-on    SQLServerException
+                  :max-retries 3
+                  :on-retry    (fn [val ex] (log/infof "Query failed, retrying"))}
+    (jdbc/with-db-metadata [metadata (config/->conn-map config)]
+      (log/infof "Connecting to %s version %s"
+                 (.getDatabaseProductName metadata)
+                 (.getDatabaseProductVersion metadata))))
   ;; It's important to keep add-column pure and keep all database
   ;; interaction in get-columns for testability
   (let [the-catalog (reduce add-column empty-catalog (get-columns config))]
