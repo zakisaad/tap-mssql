@@ -2,7 +2,8 @@
   (:require [tap-mssql.config :as config]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
-            [clojure.java.jdbc :as jdbc]))
+            [clojure.java.jdbc :as jdbc]
+            [diehard.core :as dh]))
 
 (def system-database-names #{"master" "tempdb" "model" "msdb" "rdsadmin"})
 
