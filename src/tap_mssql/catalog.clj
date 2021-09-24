@@ -3,7 +3,8 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
-            [diehard.core :as dh]))
+            [diehard.core :as dh])
+  (:import [com.microsoft.sqlserver.jdbc SQLServerException]))
 
 (def system-database-names #{"master" "tempdb" "model" "msdb" "rdsadmin"})
 
