@@ -1,3 +1,7 @@
+# Forked, crude support added for MSSQL "rowversion" timestamps
+
+This will allow Singer-tap-based systems (such as the data warehousing/ELT tool Meltano) to support incremental syncs from MSSQL-backed applications such as Dynamics NAV/BC
+
 # tap-mssql
 
 [![CircleCI](https://circleci.com/gh/singer-io/tap-mssql.svg?style=svg)](https://circleci.com/gh/singer-io/tap-mssql)
