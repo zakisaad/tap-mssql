@@ -2,3 +2,6 @@
 .lein-failures
 target/
 todo.org
+
+catalog.json
+config.json
