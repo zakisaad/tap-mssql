@@ -2,4 +2,4 @@
   :dependencies [[org.clojure/clojure "1.10.0"]
                  [org.clojure/java.jdbc "0.7.9"]
                  [com.microsoft.sqlserver/mssql-jdbc "7.2.1.jre8"]]
-  :profiles {:system {:java-cmd "/usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java"}})
+  :profiles {:system {:java-cmd "/usr/bin/java"}})
