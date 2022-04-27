@@ -8,4 +8,4 @@
                  [org.clojure/tools.nrepl "0.2.13"
                   :exclusions [org.clojure/clojure]]
                  [cider/cider-nrepl "0.17.0"]]
-  :profiles {:system {:java-cmd "/usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java"}})
+  :profiles {:system {:java-cmd "/usr/bin/java"}})
